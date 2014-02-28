@@ -71,7 +71,6 @@
 #include <limits.h>
 #include "SC_PlugIn.h"
 #include <vecLib/vDSP.h>
-#include "SC_Altivec.h"
 #include "fastInverseSqrt.h"
 
 
