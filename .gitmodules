@@ -1,0 +1,3 @@
+[submodule "libs/nova-simd"]
+	path = libs/nova-simd
+	url = https://github.com/timblechmann/nova-simd.git
