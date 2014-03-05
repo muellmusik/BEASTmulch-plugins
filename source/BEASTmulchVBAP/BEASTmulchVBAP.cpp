@@ -71,11 +71,13 @@ use or for distribution:
 #include "SC_PlugIn.h"
 #include <math.h>
 
-#define RES_ID 9171 				/* resource ID for assistance (we'll add that later) */
 #define MAX_LS_SETS 100				/* maximum number of loudspeaker sets (triplets or pairs) allowed */
 #define MAX_LS_AMOUNT 55			/* maximum amount of loudspeakers, can be increased */
 
 static InterfaceTable *ft;
+
+static float rad2ang = 360.0 / ( 2.0f * pi );
+static float atorad = (2.0f * pi) / 360.0f;
 
 struct VBAP : Unit
 {			
@@ -134,8 +136,7 @@ extern "C"
 void angle_to_cart(float azi, float ele, float res[3]);
 void angle_to_cart(float azi, float ele, float res[3])
 /* converts angular coordinates to cartesian */
-{ 
-	float atorad = (2 * 3.1415927 / 360) ;
+{
 	res[0] = cos((float) azi * atorad) * cos((float) ele * atorad);
 	res[1] = sin((float) azi * atorad) * cos((float) ele * atorad);
 	res[2] = sin((float) ele * atorad);
@@ -146,8 +147,6 @@ void cart_to_angle(float cvec[3], float avec[3])
 /* converts cartesian coordinates to angular */
 {
 	//  float tmp, tmp2, tmp3, tmp4; /* warning: unused variable */
-	float atorad = (2 * 3.1415927 / 360) ;
-	float pi =  3.1415927;
 	//  float power; /* warning: unused variable */
 	float dist, atan_y_per_x, atan_x_pl_y_per_z;
 	float azi, ele;
@@ -184,14 +183,13 @@ void new_spread_dir(VBAP *x, float spreaddir[3], float vscartdir[3], float sprea
 {
 	float beta,gamma;
 	float a,b;
-	float pi = 3.1415927;
 	float power;
 	
 	gamma = acos(vscartdir[0] * spread_base[0] +
 				 vscartdir[1] * spread_base[1] +
 				 vscartdir[2] * spread_base[2])/pi*180;
 	if(fabs(gamma) < 1){
-		angle_to_cart(x->x_azi+90, 0, spread_base);
+		angle_to_cart(x->x_azi+90.0, 0, spread_base);
 		gamma = acos(vscartdir[0] * spread_base[0] +
 					 vscartdir[1] * spread_base[1] +
 					 vscartdir[2] * spread_base[2])/pi*180;
@@ -215,7 +213,6 @@ void new_spread_base(VBAP *x, float spreaddir[3], float vscartdir[3])
 /* subroutine for spreading */
 {
 	float d;
-	float pi = 3.1415927;
 	float power;
 	
 	d = cos(x->x_spread/180*pi);
@@ -258,8 +255,8 @@ void additive_vbap(float *final_gs, float cartdir[3], VBAP *x)
 	//  	float new_angle_dir[3];     /* warning: unused variable */
   	int dim = x->x_dimension;
   	int neg_g_am, best_neg_g_am;
-	float g[3];
-	int ls[3] = { 0, 0, 0 };
+	float g[3] = {0,0,0};
+	int ls[3] = {0,0,0};
 	
   	big_sm_g = -100000.0;
   	best_neg_g_am=3;
@@ -303,24 +300,36 @@ void additive_vbap(float *final_gs, float cartdir[3], VBAP *x)
   			gains_modified=1;
   		}
 			
-			if(gains_modified != 1){
-				if(dim==3)
-					power=sqrt(g[0]*g[0] + g[1]*g[1] + g[2]*g[2]);
-				else
-					power=sqrt(g[0]*g[0] + g[1]*g[1]);
-				g[0] /= power;
-				g[1] /= power;
-				if(dim==3) 
-					g[2] /= power;
-				
-				final_gs[ls[0]-1] += g[0];
-				final_gs[ls[1]-1] += g[1];
-				/* BUG FIX: this was causing negative indices with 2 dimensions so I
-					* made it only try when using 3 dimensions.
-					* 2006-08-13 <hans@at.or.at> */
-				if(dim==3)
-					final_gs[ls[2]-1] += g[2];
-			}
+//			if(gains_modified != 1){
+//				if(dim==3)
+//					power=sqrt(g[0]*g[0] + g[1]*g[1] + g[2]*g[2]);
+//				else
+//					power=sqrt(g[0]*g[0] + g[1]*g[1]);
+//				g[0] /= power;
+//				g[1] /= power;
+//				if(dim==3) 
+//					g[2] /= power;
+//				
+//				final_gs[ls[0]-1] += g[0];
+//				final_gs[ls[1]-1] += g[1];
+//				/* BUG FIX: this was causing negative indices with 2 dimensions so I
+//					* made it only try when using 3 dimensions.
+//					* 2006-08-13 <hans@at.or.at> */
+//				if(dim==3)
+//					final_gs[ls[2]-1] += g[2];
+//			}
+    // new from PD
+    if(gains_modified != 1){
+  		power=sqrt(g[0]*g[0] + g[1]*g[1] + g[2]*g[2]);
+  		g[0] /= power;
+  		g[1] /= power;
+  		g[2] /= power;
+  		
+  		final_gs[ls[0]-1] += g[0];
+  		final_gs[ls[1]-1] += g[1];
+  		if (dim==3)
+  			final_gs[ls[2]-1] += g[2];
+  	}
 }
 
 void spread_it(VBAP *x, float *final_gs);
@@ -416,21 +425,41 @@ void vbap(float g[3], int ls[3], VBAP *x)
 	int dim = x->x_dimension;
 	int neg_g_am, best_neg_g_am;
 	
-	/* transfering the azimuth angle to a decent value */
-	while(x->x_azi > 180)
-		x->x_azi -= 360;
-	while(x->x_azi < -179)
-		x->x_azi += 360;
-  	
-	/* transferring the elevation to a decent value */
-	if(dim == 3){
-		while(x->x_ele > 180)
-			x->x_ele -= 360;
-		while(x->x_ele < -179)
-			x->x_ele += 360;
-	} else
-		x->x_ele = 0;
+//	/* transfering the azimuth angle to a decent value */
+//	while(x->x_azi > 180)
+//		x->x_azi -= 360;
+//	while(x->x_azi < -179)
+//		x->x_azi += 360;
+//  	
+//	/* transferring the elevation to a decent value */
+//	if(dim == 3){
+//		while(x->x_ele > 180)
+//			x->x_ele -= 360;
+//		while(x->x_ele < -179)
+//			x->x_ele += 360;
+//	} else
+//		x->x_ele = 0;
 	
+    // new from PD
+    // transfering the azimuth angle to a decent value
+    if(x->x_azi > 360.0 || x->x_azi < -360.0)
+        x->x_azi = fmod(x->x_azi, 360.0);
+    if(x->x_azi > 180.0)
+        x->x_azi -= 360.0;
+    if(x->x_azi < -179.0)
+        x->x_azi += 360.0;
+    
+  	
+    // transferring the elevation to a decent value
+    if(dim == 3){
+        if(x->x_ele > 360.0 || x->x_ele < -360.0)
+            x->x_ele = fmod(x->x_ele, 360.0);
+        if(x->x_ele > 180.0)
+            x->x_ele -= 360.0;
+        if(x->x_ele < -179.0)
+            x->x_ele += 360.0;
+    } else
+        x->x_ele = 0.0;
 	
 	/* go through all defined loudspeaker sets and find the set which
 		// has all positive values. If such is not found, set with largest
@@ -475,29 +504,30 @@ void vbap(float g[3], int ls[3], VBAP *x)
 		// gain values. This happens when the virtual source is outside of
 		// all loudspeaker sets. */
 	
-	if(dim==3){
-		gains_modified=0;
-		for(i=0;i<dim;i++)
-			if(g[i]<-0.01){
-				g[i]=0.0001;
-				gains_modified=1;
-			}	
-				if(gains_modified==1){
-					new_cartdir[0] =  x->x_set_matx[winner_set][0] * g[0] 
-					+ x->x_set_matx[winner_set][1] * g[1]
-					+ x->x_set_matx[winner_set][2] * g[2];
-					new_cartdir[1] =  x->x_set_matx[winner_set][3] * g[0] 
- 	 					+ x->x_set_matx[winner_set][4] * g[1] 
- 	 					+ x->x_set_matx[winner_set][5] * g[2];
-					new_cartdir[2] =  x->x_set_matx[winner_set][6] * g[0] 
- 	 					+ x->x_set_matx[winner_set][7] * g[1]
- 	 					+ x->x_set_matx[winner_set][8] * g[2];
-					cart_to_angle(new_cartdir,new_angle_dir);
-					x->x_azi = (float) (new_angle_dir[0] + 0.5);
-					x->x_ele = (float) (new_angle_dir[1] + 0.5);
-				}
-	}
-		
+    gains_modified=0;
+    for(i=0;i<dim;i++)
+        if(g[i]<-0.01){
+            g[i]=0.0001;
+            gains_modified=1;
+        }
+    
+        if(gains_modified==1){
+            new_cartdir[0] =  x->x_set_matx[winner_set][0] * g[0] 
+            + x->x_set_matx[winner_set][1] * g[1]
+            + x->x_set_matx[winner_set][2] * g[2];
+            new_cartdir[1] =  x->x_set_matx[winner_set][3] * g[0] 
+                + x->x_set_matx[winner_set][4] * g[1] 
+                + x->x_set_matx[winner_set][5] * g[2];
+            if (dim == 3) {
+                new_cartdir[2] =  x->x_set_matx[winner_set][6] * g[0] 
+                    + x->x_set_matx[winner_set][7] * g[1]
+                    + x->x_set_matx[winner_set][8] * g[2];
+            } else new_cartdir[2] = 0;
+            cart_to_angle(new_cartdir,new_angle_dir);
+            x->x_azi = (new_angle_dir[0]);
+            x->x_ele = (new_angle_dir[1]);
+        }
+
 		power=sqrt(g[0]*g[0] + g[1]*g[1] + g[2]*g[2]);
 		g[0] /= power;
 		g[1] /= power;
