@@ -37,6 +37,12 @@ option(NATIVE "Optimize for this specific machine." OFF)
 
 #option(NOVA_DISK_IO "Build with Nova's DiskIO UGens. Requires boost source tree, break warranty & eats your children." OFF)
 
+if (APPLE AND (${CMAKE_OSX_SYSROOT} MATCHES "MacOSX10.9.sdk"))
+	message(STATUS "Building for Mac OS X 10.9")
+	set(MACOS_10_9 ON)
+	add_definitions(-DMACOS_10_9)
+endif()
+
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	set(CMAKE_COMPILER_IS_CLANG 1)
 endif()

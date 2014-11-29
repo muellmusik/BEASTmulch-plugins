@@ -70,9 +70,12 @@
 
 #include <limits.h>
 #include "SC_PlugIn.h"
-#include <vecLib/vDSP.h>
 #include "fastInverseSqrt.h"
-
+#if !defined(MACOS_10_9)
+#include "vecLib/vDSP.h"
+#elif defined(MACOS_10_9)
+#include <Accelerate/Accelerate.h>
+#endif
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
