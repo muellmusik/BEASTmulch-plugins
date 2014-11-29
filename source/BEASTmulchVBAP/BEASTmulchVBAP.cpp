@@ -71,8 +71,8 @@ use or for distribution:
 #include "SC_PlugIn.h"
 #include <math.h>
 
-#define MAX_LS_SETS 100				/* maximum number of loudspeaker sets (triplets or pairs) allowed */
-#define MAX_LS_AMOUNT 55			/* maximum amount of loudspeakers, can be increased */
+#define MAX_LS_SETS 200				/* maximum number of loudspeaker sets (triplets or pairs) allowed */
+#define MAX_LS_AMOUNT 100			/* maximum amount of loudspeakers, can be increased */
 
 static InterfaceTable *ft;
 
@@ -188,7 +188,7 @@ void new_spread_dir(VBAP *x, float spreaddir[3], float vscartdir[3], float sprea
 	gamma = acos(vscartdir[0] * spread_base[0] +
 				 vscartdir[1] * spread_base[1] +
 				 vscartdir[2] * spread_base[2])/pi*180;
-	if(fabs(gamma) < 1){
+	if(fabs(gamma) < 1 || fabs(gamma) > 179 || fabs(gamma) < -179){
 		angle_to_cart(x->x_azi+90.0, 0, spread_base);
 		gamma = acos(vscartdir[0] * spread_base[0] +
 					 vscartdir[1] * spread_base[1] +
