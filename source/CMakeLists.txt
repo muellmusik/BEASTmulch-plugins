@@ -91,18 +91,18 @@ set(PLUGIN_DIRS
 )
 
 # plugins with extra lib
-set(PLUGIN_DIRS_EXTRA
-    AuditoryModeling
-    BetablockerUGens
-    DEINDUGens
-    LadspaUGen
-    MembraneUGens
-    NCAnalysisUGens
-    OteyPianoUGens
-    PitchDetection
-    StkUGens
-    TJUGens
-)
+#set(PLUGIN_DIRS_EXTRA
+#    AuditoryModeling
+#    BetablockerUGens
+#    DEINDUGens
+#    LadspaUGen
+#    MembraneUGens
+#    NCAnalysisUGens
+#    OteyPianoUGens
+#    PitchDetection
+#    StkUGens
+#    TJUGens
+#)
 
 set(plugins "")
 set(supernova_plugins "")
@@ -182,17 +182,17 @@ install(DIRECTORY local DESTINATION "${INSTALL_DESTINATION_DISTRO}"
 #             "" "complexRes")
 #include_directories(DEINDUGens/include)
 #BUILD_PLUGIN(JPverb
-#"DEINDUGens/JPverbRaw.cpp" 
+#"DEINDUGens/JPverbRaw.cpp"
 #             "" "JPverb")
-#			 set_property(TARGET JPverb APPEND PROPERTY COMPILE_DEFINITIONS SC_FAUST_PREFIX="\"\"") 
-#			 set_property(TARGET JPverb APPEND PROPERTY COMPILE_DEFINITIONS mydsp=JPVERB) 
-#			 set_property(TARGET JPverb APPEND PROPERTY COMPILE_DEFINITIONS NDEBUG) 
+#			 set_property(TARGET JPverb APPEND PROPERTY COMPILE_DEFINITIONS SC_FAUST_PREFIX="\"\"")
+#			 set_property(TARGET JPverb APPEND PROPERTY COMPILE_DEFINITIONS mydsp=JPVERB)
+#			 set_property(TARGET JPverb APPEND PROPERTY COMPILE_DEFINITIONS NDEBUG)
 #BUILD_PLUGIN(Greyhole
-#"DEINDUGens/GreyholeRaw.cpp" 
+#"DEINDUGens/GreyholeRaw.cpp"
 #             "" "Greyhole")
-#			 set_property(TARGET Greyhole APPEND PROPERTY COMPILE_DEFINITIONS SC_FAUST_PREFIX="\"\"") 
-#			 set_property(TARGET Greyhole APPEND PROPERTY COMPILE_DEFINITIONS mydsp=GREYHOLE) 
-#			 set_property(TARGET Greyhole APPEND PROPERTY COMPILE_DEFINITIONS NDEBUG) 
+#			 set_property(TARGET Greyhole APPEND PROPERTY COMPILE_DEFINITIONS SC_FAUST_PREFIX="\"\"")
+#			 set_property(TARGET Greyhole APPEND PROPERTY COMPILE_DEFINITIONS mydsp=GREYHOLE)
+#			 set_property(TARGET Greyhole APPEND PROPERTY COMPILE_DEFINITIONS NDEBUG)
 #
 ## MembraneUGens
 #BUILD_PLUGIN(MembraneUGens "MembraneUGens/Membrane_shape.c;MembraneUGens/Membrane.cpp"
@@ -208,7 +208,7 @@ install(DIRECTORY local DESTINATION "${INSTALL_DESTINATION_DISTRO}"
 ## OteyPianoUGens
 #BUILD_PLUGIN(OteyPianoUGens "OteyPianoUGens/OteyPiano.cpp;OteyPianoUGens/dwgs.cpp;OteyPianoUGens/filter.cpp;OteyPianoUGens/hammer.cpp;OteyPianoUGens/DWG.cpp;OteyPianoUGens/reverb.cpp"
 #             "" "OteyPianoUGens")
-#             
+#
 ## PitchDetectionUGens
 #file(GLOB PitchDetectionSources PitchDetection/*cpp)
 #if(APPLE)

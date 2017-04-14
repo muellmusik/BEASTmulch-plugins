@@ -26,7 +26,11 @@
 //#include<ppc_intrinsics.h>
 #endif
 #include <math.h>
-#include <vecLib/vDSP.h>
+#if !defined(MACOS_10_9)
+#include "vecLib/vDSP.h"
+#elif defined(MACOS_10_9)
+#include <Accelerate/Accelerate.h>
+#endif
 #include <stdint.h>
 
 #if defined(__ppc__) || defined(__ppc64__)
