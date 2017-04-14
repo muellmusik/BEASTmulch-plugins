@@ -463,7 +463,7 @@ if (numOutputs > bufChannels) { \
 		ClearUnitOutputs(unit, inNumSamples); \
 			return; \
 } \
-float *out[16]; \
+float *out[numOutputs]; \
 for (uint32 i=0; i<numOutputs; ++i) out[i] = ZOUT(i);
 
 
