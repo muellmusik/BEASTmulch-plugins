@@ -34,6 +34,14 @@ BEPartials {
 	}
 
 	startTime { ^partialList.collect({|part| part.startTime}).minItem }
+
+	moveStartToZero {
+		var startTime = this.startTime;
+		partialList.do({|part|
+			part.startTime_(part.startTime - startTime);
+		});
+	}
+
 	// fades in or out partials with non-zero start and/or end amps
 	fadeInOut {|fadein = 0.001, fadeout = 0.001| // loris standard
 		var extraPhase;
