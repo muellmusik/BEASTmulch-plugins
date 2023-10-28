@@ -71,8 +71,8 @@ use or for distribution:
 #include "SC_PlugIn.h"
 #include <math.h>
 
-#define MAX_LS_SETS 200				/* maximum number of loudspeaker sets (triplets or pairs) allowed */
-#define MAX_LS_AMOUNT 100			/* maximum amount of loudspeakers, can be increased */
+//#define MAX_LS_SETS 200				/* maximum number of loudspeaker sets (triplets or pairs) allowed */
+//#define MAX_LS_AMOUNT 100			/* maximum amount of loudspeakers, can be increased */
 
 static InterfaceTable *ft;
 
@@ -83,9 +83,12 @@ struct VBAP : Unit
 {			
 	float x_azi; 				/* panning direction azimuth */
 	float x_ele;				/* panning direction elevation */
-	float x_set_inv_matx[MAX_LS_SETS][9];  /* inverse matrice for each loudspeaker set */
-	float x_set_matx[MAX_LS_SETS][9];      /* matrice for each loudspeaker set */
-	int x_lsset[MAX_LS_SETS][3];          /* channel numbers of loudspeakers in each LS set */
+//	float x_set_inv_matx[MAX_LS_SETS][9];  /* inverse matrice for each loudspeaker set */
+//	float x_set_matx[MAX_LS_SETS][9];      /* matrice for each loudspeaker set */
+//	int x_lsset[MAX_LS_SETS][3];          /* channel numbers of loudspeakers in each LS set */
+    float* *x_set_inv_matx;  /* inverse matrice for each loudspeaker set */
+    float* *x_set_matx;      /* matrice for each loudspeaker set */
+    int* *x_lsset;          /* channel numbers of loudspeakers in each LS set */
 	int x_lsset_available;			/* have loudspeaker sets been defined with define_loudspeakers */
 	int x_lsset_amount;			/* amount of loudspeaker sets */
 	int x_ls_amount;                      /* amount of loudspeakers */
@@ -94,7 +97,7 @@ struct VBAP : Unit
 	float x_spread_base[3];                /* used to create uniform spreading */
 	float *final_gs;
 	
-	float m_chanamp[MAX_LS_AMOUNT]; // for smoothing amp changes max channels 55 at the moment
+	float *m_chanamp;
 };
 
 // for circular smoothing
@@ -610,6 +613,12 @@ void VBAP_Ctor(VBAP* unit)
 	//printf("VBAP-1.0.3.2\n");
 	int numOutputs = unit->mNumOutputs, counter = 0, datapointer=0, setpointer=0, i;
 	
+    printf("vbap: numOutputs %i\n", numOutputs);
+    
+    printf("allocating chan amps\n");
+
+    unit->m_chanamp = (float*)RTAlloc(unit->mWorld, numOutputs * sizeof(float));
+    
 	// initialise interpolation levels and outputs
 	for (int i=0; i<numOutputs; ++i) {
 		unit->m_chanamp[i] = 0;
@@ -625,8 +634,12 @@ void VBAP_Ctor(VBAP* unit)
 	int numvals = buf->samples;
 	unit->x_dimension = (int)(buf->data[datapointer++]);
 	unit->x_ls_amount = (int)(buf->data[datapointer++]);
-	
+    printf("vbap: x_ls_amount %i\n", unit->x_ls_amount);
+
+    // should we check here that x_ls_amount and numOutputs match and bork if not?
+    
 	unit->final_gs = (float*)RTAlloc(unit->mWorld, numOutputs * sizeof(float));
+    printf("final_gs %p\n", (void *)unit->final_gs);
 	unit->x_lsset_available = 1;
 	
 	if(((unit->x_dimension != 2) && (unit->x_dimension != 3)) || (unit->x_ls_amount < 2)) {
@@ -646,7 +659,17 @@ void VBAP_Ctor(VBAP* unit)
  		unit->x_lsset_available=0;
 // 		return;
  	}
-	
+    
+    printf("allocating set and matrix arrays\n");
+    unit->x_set_inv_matx = (float**)RTAlloc(unit->mWorld, counter * sizeof(float*));
+    unit->x_set_matx = (float**)RTAlloc(unit->mWorld, counter * sizeof(float*));
+    unit->x_lsset = (int**)RTAlloc(unit->mWorld, counter * sizeof(int*));
+    
+    for(i=0; i<counter; i++){
+        unit->x_set_inv_matx[i] = (float*)RTAlloc(unit->mWorld, 9 * sizeof(float));
+        unit->x_set_matx[i] = (float*)RTAlloc(unit->mWorld, 9 * sizeof(float));
+        unit->x_lsset[i] = (int*)RTAlloc(unit->mWorld, 3 * sizeof(int));
+    }
 	// probably sets should be created with rtalloc
 	while(counter-- > 0){
  		for(i=0; i < unit->x_dimension; i++){
@@ -708,7 +731,20 @@ void VBAP_Ctor(VBAP* unit)
 
 void VBAP_Dtor(VBAP* unit)
 {
+    int counter = unit->x_lsset_amount;
+    printf("dtorvbap\n");
+    printf("final_gs %p\n", (void *)unit->final_gs);
 	RTFree(unit->mWorld, unit->final_gs);
+    
+    for(int i=0; i<counter; i++){
+        RTFree(unit->mWorld, unit->x_set_inv_matx[i]);
+        RTFree(unit->mWorld, unit->x_set_matx[i]);
+        RTFree(unit->mWorld, unit->x_lsset[i]);
+    }
+    
+    RTFree(unit->mWorld, unit->x_set_inv_matx);
+    RTFree(unit->mWorld, unit->x_set_matx);
+    RTFree(unit->mWorld, unit->x_lsset);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
