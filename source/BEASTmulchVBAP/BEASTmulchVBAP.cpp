@@ -69,7 +69,24 @@ use or for distribution:
 */
 
 #include "SC_PlugIn.h"
-#include <math.h>
+#include <cmath>
+#include <limits>
+#include <stdio.h>
+
+#ifdef NOVA_SIMD
+#include "simd_memory.hpp"
+#include "simd_binary_arithmetic.hpp"
+
+using nova::wrap_argument;
+
+#ifdef __GNUC__
+#define inline_functions __attribute__ ((flatten))
+#else
+#define inline_functions
+#endif
+
+#endif
+
 
 //#define MAX_LS_SETS 200				/* maximum number of loudspeaker sets (triplets or pairs) allowed */
 //#define MAX_LS_AMOUNT 100			/* maximum amount of loudspeakers, can be increased */
@@ -112,15 +129,6 @@ struct CircleRamp : public Unit
 
 extern "C"
 {
-	void load(InterfaceTable *inTable);
-
-	void VBAP_Ctor(VBAP *unit);
-	void VBAP_Dtor(VBAP *unit);
-	void VBAP_next(VBAP *unit, int inNumSamples);
-	
-	void CircleRamp_next(CircleRamp *unit, int inNumSamples);
-	void CircleRamp_next_1(CircleRamp *unit, int inNumSamples);
-	void CircleRamp_Ctor(CircleRamp* unit);
 
 }
 
@@ -136,8 +144,7 @@ extern "C"
 /* static void vbap_int(t_vbap *x, t_float n); */
 //void vbap_matrix(VBAP *x, t_symbol *s, int ac, t_atom *av);
 
-void angle_to_cart(float azi, float ele, float res[3]);
-void angle_to_cart(float azi, float ele, float res[3])
+static void angle_to_cart(float azi, float ele, float res[3])
 /* converts angular coordinates to cartesian */
 {
 	res[0] = cos((float) azi * atorad) * cos((float) ele * atorad);
@@ -145,8 +152,7 @@ void angle_to_cart(float azi, float ele, float res[3])
 	res[2] = sin((float) ele * atorad);
 }
 
-void cart_to_angle(float cvec[3], float avec[3]);
-void cart_to_angle(float cvec[3], float avec[3])
+static void cart_to_angle(float cvec[3], float avec[3])
 /* converts cartesian coordinates to angular */
 {
 	//  float tmp, tmp2, tmp3, tmp4; /* warning: unused variable */
@@ -180,8 +186,7 @@ void cart_to_angle(float cvec[3], float avec[3])
 	avec[2]=dist;
 }
 
-void new_spread_dir(VBAP *x, float spreaddir[3], float vscartdir[3], float spread_base[3]);
-void new_spread_dir(VBAP *x, float spreaddir[3], float vscartdir[3], float spread_base[3])
+static void new_spread_dir(VBAP *x, float spreaddir[3], float vscartdir[3], float spread_base[3])
 /* subroutine for spreading */
 {
 	float beta,gamma;
@@ -211,8 +216,7 @@ void new_spread_dir(VBAP *x, float spreaddir[3], float vscartdir[3], float sprea
   	spreaddir[2] /= power;
 }
 
-void new_spread_base(VBAP *x, float spreaddir[3], float vscartdir[3]);
-void new_spread_base(VBAP *x, float spreaddir[3], float vscartdir[3])
+static void new_spread_base(VBAP *x, float spreaddir[3], float vscartdir[3])
 /* subroutine for spreading */
 {
 	float d;
@@ -229,8 +233,7 @@ void new_spread_base(VBAP *x, float spreaddir[3], float vscartdir[3])
   	x->x_spread_base[2] /= power;
 }
 
-void cross_prod(float v1[3], float v2[3], float v3[3]);
-void cross_prod(float v1[3], float v2[3], float v3[3]) 
+static void cross_prod(float v1[3], float v2[3], float v3[3])
 /* vector cross product */
 {
 	float length;
@@ -244,8 +247,7 @@ void cross_prod(float v1[3], float v2[3], float v3[3])
 	v3[2] /= length;
 }
 
-void additive_vbap(float *final_gs, float cartdir[3], VBAP *x);
-void additive_vbap(float *final_gs, float cartdir[3], VBAP *x)
+static void additive_vbap(float *final_gs, float cartdir[3], VBAP *x)
 /* calculates gains to be added to previous gains, used in
 // multiple direction panning (source spreading) */
 {
@@ -335,8 +337,7 @@ void additive_vbap(float *final_gs, float cartdir[3], VBAP *x)
   	}
 }
 
-void spread_it(VBAP *x, float *final_gs);
-void spread_it(VBAP *x, float *final_gs)
+static void spread_it(VBAP *x, float *final_gs)
 /*
  // apply the sound signal to multiple panning directions
  // that causes some spreading.
@@ -413,8 +414,7 @@ void spread_it(VBAP *x, float *final_gs)
 
 
 
-void vbap(float g[3], int ls[3], VBAP *x);
-void vbap(float g[3], int ls[3], VBAP *x)
+static void vbap(float g[3], int ls[3], VBAP *x)
 {
 	/* calculates gain factors using loudspeaker setup and given direction */
 	float power;
@@ -540,45 +540,49 @@ void vbap(float g[3], int ls[3], VBAP *x)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void VBAP_next(VBAP *unit, int inNumSamples)
+static inline void VBAP_calc_gain_factors(VBAP * unit)
 {
-	// adapted from vbap_bang
-	
-	float *zin0 = ZIN(0);
-	float azimuth = ZIN0(2);
-	float elevation = ZIN0(3);
-	float spread = ZIN0(4);
-	
-	float *final_gs = unit->final_gs;
-	
-	// only recalculate gain factors if inputs have changed
-	if((azimuth != unit->x_azi) || (elevation != unit->x_ele) || (spread != unit->x_spread)){
-		
-		float g[3];
-		int ls[3];
-		int i;
-		
-		unit->x_azi = azimuth;
-		unit->x_ele = elevation;
-		unit->x_spread = spread;
-		
-		if(unit->x_lsset_available ==1){
-			vbap(g,ls, unit);
-			for(i=0;i<unit->x_ls_amount;i++)
-				final_gs[i]=0.0; 			
-			for(i=0;i<unit->x_dimension;i++){
-				final_gs[ls[i]-1]=g[i];  
-			}
-			if(unit->x_spread != 0){
-				spread_it(unit,final_gs);
-			}
-			
-//			for(i=0; i < unit->mNumOutputs; i++){
-//				printf("chan %i: %f\n", i, final_gs[i] );
-//			}
-			
-		}
-	}
+    // adapted from vbap_bang
+    float azimuth = ZIN0(2);
+    float elevation = ZIN0(3);
+    float spread = ZIN0(4);
+
+    float *final_gs = unit->final_gs;
+
+    // only recalculate gain factors if inputs have changed
+    if((azimuth != unit->x_azi) || (elevation != unit->x_ele) || (spread != unit->x_spread)){
+
+        float g[3];
+        int ls[3];
+        int i;
+
+        unit->x_azi = azimuth;
+        unit->x_ele = elevation;
+        unit->x_spread = spread;
+
+        if(unit->x_lsset_available ==1){
+            vbap(g,ls, unit);
+            for(i=0;i<unit->x_ls_amount;i++)
+                final_gs[i]=0.0;
+            for(i=0;i<unit->x_dimension;i++){
+                final_gs[ls[i]-1]=g[i];
+            }
+            if(unit->x_spread != 0){
+                spread_it(unit,final_gs);
+            }
+//            for(i=0; i < unit->mNumOutputs; i++){
+//                printf("chan %i: %f\n", i, final_gs[i] );
+//            }
+        }
+    }
+}
+
+static void VBAP_next(VBAP *unit, int inNumSamples)
+{
+    VBAP_calc_gain_factors(unit);
+    
+    float *zin0 = ZIN(0);
+    float *final_gs = unit->final_gs;
 	
 	// now scale the outputs
 	for (int i=0; i<(unit->mNumOutputs); ++i) {
@@ -604,11 +608,40 @@ void VBAP_next(VBAP *unit, int inNumSamples)
 			unit->m_chanamp[i] = nextchanamp;
 		}
 	}
-	
 }
 
+#ifdef NOVA_SIMD
+static inline_functions void VBAP_next_simd(VBAP *unit, int inNumSamples)
+{
+    VBAP_calc_gain_factors(unit);
+
+    float *in = IN(0);
+    float *final_gs = unit->final_gs;
+
+    // now scale the outputs
+    for (int i=0; i<(unit->mNumOutputs); ++i) {
+        float *out = OUT(i);
+        float chanamp = unit->m_chanamp[i];
+        float nextchanamp = final_gs[i];
+        if (nextchanamp == chanamp) {
+            if (nextchanamp == 0.f)
+                nova::zerovec_simd(out, inNumSamples);
+            else
+                nova::times_vec_simd(out, in, nextchanamp, inNumSamples);
+        } else {
+            float chanampslope = CALCSLOPE(nextchanamp, chanamp);
+            for (int j = 0; j < inNumSamples; j++) {
+                out[j] = in[j] * chanamp;
+                chanamp += chanampslope;
+            }
+            unit->m_chanamp[i] = nextchanamp;
+        }
+    }
+}
+#endif
+
 // needs to check that numOutputs and x_ls_amount match!!
-void VBAP_Ctor(VBAP* unit)
+static void VBAP_Ctor(VBAP* unit)
 {
 	//printf("VBAP-1.0.3.2\n");
 	int numOutputs = unit->mNumOutputs, counter = 0, datapointer=0, setpointer=0, i;
@@ -629,11 +662,26 @@ void VBAP_Ctor(VBAP* unit)
 	float fbufnum = ZIN0(1);
 	uint32 ibufnum = (uint32)fbufnum; 
 	World *world = unit->mWorld;
-	if (ibufnum >= world->mNumSndBufs) ibufnum = 0;
-	SndBuf *buf = world->mSndBufs + ibufnum;
+	
+    SndBuf *buf;
+    if (ibufnum >= world->mNumSndBufs) {
+        int localBufNum = ibufnum - world->mNumSndBufs;
+        Graph *parent = unit->mParent;
+        if(localBufNum <= parent->localBufNum) {
+            buf = parent->mLocalSndBufs + localBufNum;
+        } else {
+            buf = world->mSndBufs;
+        }
+    } else {
+        buf = world->mSndBufs + ibufnum;
+    }
+
 	int numvals = buf->samples;
 	unit->x_dimension = (int)(buf->data[datapointer++]);
 	unit->x_ls_amount = (int)(buf->data[datapointer++]);
+    
+    unit->x_azi = unit->x_ele = unit->x_spread = std::numeric_limits<float>::quiet_NaN();
+    
     printf("vbap: x_ls_amount %i\n", unit->x_ls_amount);
 
     // should we check here that x_ls_amount and numOutputs match and bork if not?
@@ -691,6 +739,11 @@ void VBAP_Ctor(VBAP* unit)
 	}
 	//printf("vbap: Loudspeaker setup configured!\n");
 	
+#ifdef NOVA_SIMD
+    if (!(BUFLENGTH & 15))
+        SETCALC(VBAP_next_simd);
+    else
+#endif
 	SETCALC(VBAP_next);
 	
 	ZOUT0(0) = ZIN0(0);
@@ -729,7 +782,7 @@ void VBAP_Ctor(VBAP* unit)
 }
 
 
-void VBAP_Dtor(VBAP* unit)
+static void VBAP_Dtor(VBAP* unit)
 {
     int counter = unit->x_lsset_amount;
     printf("dtorvbap\n");
@@ -750,7 +803,7 @@ void VBAP_Dtor(VBAP* unit)
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // for circular smoothing of input signals
-void CircleRamp_next(CircleRamp *unit, int inNumSamples)
+static void CircleRamp_next(CircleRamp *unit, int inNumSamples)
 {
 	float *out = ZOUT(0);
 	float *in = IN(0);
@@ -790,7 +843,7 @@ void CircleRamp_next(CircleRamp *unit, int inNumSamples)
 	
 }
 
-void CircleRamp_next_1(CircleRamp *unit, int inNumSamples)
+static void CircleRamp_next_1(CircleRamp *unit, int inNumSamples)
 {
 	float *out = OUT(0);
 	
@@ -817,7 +870,7 @@ void CircleRamp_next_1(CircleRamp *unit, int inNumSamples)
 	
 }
 
-void CircleRamp_Ctor(CircleRamp* unit)
+static void CircleRamp_Ctor(CircleRamp* unit)
 {
 	if (BUFLENGTH == 1) {
 		SETCALC(CircleRamp_next_1);
@@ -837,7 +890,6 @@ void CircleRamp_Ctor(CircleRamp* unit)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-//void load(InterfaceTable *inTable)
 PluginLoad(VBAP)
 {
 	ft = inTable;
