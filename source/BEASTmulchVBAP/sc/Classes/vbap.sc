@@ -1,6 +1,6 @@
 /*
 VBAP created by Ville Pukki
-This version ported from ver 0.99 PD code by Scott Wilson
+This version ported from ver 1.0.3.2 PD code by Scott Wilson
 Development funded in part by the AHRC http://www.ahrc.ac.uk
 
 Copyright
@@ -27,7 +27,7 @@ use or for distribution:
 
 
 VBAPSpeakerArray {
-	classvar <>maxNumSpeakers = 55, minSideLength = 0.01;
+	classvar minSideLength = 0.01;
 	var <dim, <speakers, <numSpeakers, sets;
 
 	*new { |dim, directions|
@@ -99,12 +99,12 @@ VBAPSpeakerArray {
 		var distance;
 
 		// init vars defined above
-		connections = Array.fill(maxNumSpeakers, {Array.newClear(maxNumSpeakers)});
-		//angles = Array.newClear(maxNumSpeakers);
-		//sorted_angles = Array.newClear(maxNumSpeakers);
-		distance_table = Array.newClear((maxNumSpeakers * (maxNumSpeakers - 1)) / 2);
-		distance_table_i = Array.newClear((maxNumSpeakers * (maxNumSpeakers - 1)) / 2);
-		distance_table_j = Array.newClear((maxNumSpeakers * (maxNumSpeakers - 1)) / 2);
+		connections = Array.fill(numSpeakers, {Array.newClear(numSpeakers)});
+		//angles = Array.newClear(numSpeakers);
+		//sorted_angles = Array.newClear(numSpeakers);
+		distance_table = Array.newClear((numSpeakers * (numSpeakers - 1)) / 2);
+		distance_table_i = Array.newClear((numSpeakers * (numSpeakers - 1)) / 2);
+		distance_table_j = Array.newClear((numSpeakers * (numSpeakers - 1)) / 2);
 
   		sets = nil;
 		for(0.0, numSpeakers -1, {|i|
@@ -407,12 +407,12 @@ VBAPSpeakerArray {
 		var result;
 		var pointer;
 
-		exist = Array.newClear(maxNumSpeakers);
-		inv_mat = Array.fill(maxNumSpeakers, {Array.newClear(4)});
+		exist = Array.newClear(numSpeakers);
+		inv_mat = Array.fill(numSpeakers, {Array.newClear(4)});
 		// not sure
-		mat = Array.fill(maxNumSpeakers, {Array.newClear(4)});
+		mat = Array.fill(numSpeakers, {Array.newClear(4)});
 
-		for(0, maxNumSpeakers - 1, {|i|
+		for(0, numSpeakers - 1, {|i|
 			exist[i]=0;
 		});
 
@@ -491,7 +491,7 @@ VBAPSpeakerArray {
 		//var x,y;
 		var sorted_lss;
 
-		sorted_lss = Array.newClear(maxNumSpeakers);
+		sorted_lss = Array.newClear(numSpeakers);
 
 		/* Transforming angles between -180 and 180 */
 		for (0, numSpeakers - 1, {|i|
